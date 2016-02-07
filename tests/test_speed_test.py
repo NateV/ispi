@@ -1,0 +1,57 @@
+from ispi import SpeedTest
+import os
+import pytest
+import sqlite3
+
+class TestSpeedTest:
+    
+    def setup_method(self, method):
+        self.tester = SpeedTest()
+
+    def teardown_method(self, method):
+        if os.path.exists(os.path.join(self.tester.DB_PATH,\
+                self.tester.SCHEMA['DB_NAME'])):
+            os.remove(os.path.join(self.tester.DB_PATH,\
+                self.tester.SCHEMA['DB_NAME']))
+
+    def test_init(self):
+        tester = SpeedTest()
+        assert isinstance(tester, SpeedTest)
+
+    def test_database_schema(self):
+        assert self.tester.DB_PATH == os.path.abspath('.')
+        assert self.tester.SCHEMA['DB_NAME'] == 'ispi_db.sqlite'
+        assert self.tester.SCHEMA['TABLE_NAME'] == 'TestResults'
+        assert self.tester.SCHEMA['COLUMNS'] == {
+            '_id':'INTEGER PRIMARY KEY AUTOINCREMENT',
+            'timestamp': 'TEXT',
+            'result': 'TEXT',
+            }
+
+    def test_create_db_correctly(self):
+        self.tester.create_db()
+        conn = sqlite3.connect(self.tester.get_full_db_path())
+        cur = conn.cursor()
+        cur.execute('PRAGMA table_info("TestResults")')
+        col_names = [col[1]  for col in cur.fetchall()]
+        for col_name in col_names:
+            assert col_name in self.tester.SCHEMA['COLUMNS'].keys()
+
+    def test_get_full_db_path(self):
+        assert self.tester.get_full_db_path() \
+                == os.path.join(self.tester.DB_PATH, self.tester.SCHEMA['DB_NAME'])
+
+
+    def test_creates_db_if_not_exists(self):
+        assert not os.path.exists(os.path.join(self.tester.DB_PATH,
+                        self.tester.SCHEMA['DB_NAME']))
+        self.tester.create_db()
+        assert os.path.exists(os.path.join(self.tester.DB_PATH,
+                        self.tester.SCHEMA['DB_NAME']))
+
+    def test_does_not_create_db_if_exists_already(self):
+        assert not os.path.exists(os.path.join(self.tester.DB_PATH,
+                        self.tester.SCHEMA['DB_NAME']))
+        self.tester.create_db()
+        assert pytest.raises(Exception)
+
