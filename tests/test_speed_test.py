@@ -2,6 +2,7 @@ from ispi import SpeedTest
 import os
 import pytest
 import sqlite3
+import re
 
 class TestSpeedTest:
     
@@ -55,3 +56,27 @@ class TestSpeedTest:
         self.tester.create_db()
         assert pytest.raises(Exception)
 
+    def test_run_speedtest(self):
+        """
+        When I run the speedtest, the results include a download speed.
+        """
+        results = self.tester.run_speedtest()
+        pattern = re.compile("Download: (?P<download_speed>[0-9\.]*)")
+        assert pattern.search(results)
+
+    def test_get_speeds(self):
+        """
+        I pass results of a speedtest to get_speeds, I receive a dict with
+        download and upload speeds.
+        """
+        speed_dict = self.tester.get_speeds(self.tester.run_speedtest())
+        #TODO: I wonder if its bad practice to have  unit test that takes
+        #       another function's output as its input.  I mean, its no 
+        #       longer isolated, but how can you avoid doing that?
+        assert isinstance(speed_dict, dict)
+        assert 'download_speed' in speed_dict
+        assert 'upload_speed' in speed_dict
+
+
+    def test_run_test(self):
+        pass

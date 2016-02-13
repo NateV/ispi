@@ -1,5 +1,16 @@
 import os
 import sqlite3
+import io
+import speedtest_cli
+from contextlib import redirect_stdout
+import re
+
+try:
+    assert os.environ['ENV_NAME'] == 'dev'
+    from fixtures import sample_speedtest
+except:
+    pass
+
 
 class SpeedTest:
 
@@ -36,7 +47,34 @@ class SpeedTest:
         cur.execute(table_string)
         conn.commit()
         conn.close()
-            
+    
+
+    def run_speedtest(self):
+        """
+        Runs the main method of speedtest-cli.py, 
+        captures and returns the stdout output in a StringIO object.
+        """
+        #TODO: Handle errors by speedtest_cli.  i.e. if output has "Cancelling"
+        stdout_capturer = io.StringIO()
+        if os.environ['ENV_NAME'] != 'dev':
+            with redirect_stdout(stdout_capturer):
+                speedtest_cli.main()
+            return stdout_capturer.getvalue()
+        else:
+            return sample_speedtest.result
+
+
+    def get_speeds(self, speedtest_results):
+        """
+        Input: results from speedtest as a string,
+        Output: A Dict with keys "download_speed" and "upload_speed"
+        """
+        download_pattern = re.compile("Download: (?P<download_speed>[0-9\.]*)")
+        upload_pattern = re.compile("Upload: (?P<upload_speed>[0-9\.]*)")
+        return {'download_speed':
+                    download_pattern.search(speedtest_results).group('download_speed'),
+                'upload_speed':
+                    upload_pattern.search(speedtest_results).group('upload_speed')}
 
     def run_test(self):
         pass
