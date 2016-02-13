@@ -4,6 +4,7 @@ import io
 import speedtest_cli
 from contextlib import redirect_stdout
 import re
+import datetime
 
 try:
     assert os.environ['ENV_NAME'] == 'dev'
@@ -19,10 +20,13 @@ class SpeedTest:
               'TABLE_NAME': 'TestResults',
               'COLUMNS': {'_id':'INTEGER PRIMARY KEY AUTOINCREMENT',
                           'timestamp': 'TEXT',
-                          'result': 'TEXT',},}
+                          'download_speed': 'TEXT',
+                          'upload_speed': 'TEXT'},}
 
-    SUCCESS_CODE = None
-    __result_code__ = None
+    __possible_result_codes__ = {'HAS_NOT_RUN': '0',
+                                 'ERROR': '1',
+                                 'SUCCESS': '2',}
+    __result_code__ = __possible_result_codes__['HAS_NOT_RUN']
 
     def __init__(self):
         pass
@@ -37,11 +41,12 @@ class SpeedTest:
         conn = sqlite3.connect(self.get_full_db_path())
         cur = conn.cursor()
         table_string = "CREATE TABLE {table_name}\
-                ({col_1}, {col_2}, {col_3})".\
+                ({col_1}, {col_2}, {col_3}, {col_4})".\
                 format(table_name=self.SCHEMA['TABLE_NAME'],\
                        col_1='_id INTEGER PRIMARY KEY AUTOINCREMENT',
                        col_2='timestamp TEXT',
-                       col_3='result TEXT')
+                       col_3='download_speed TEXT',
+                       col_4='upload_speed TEXT')
         #TODO: Actually use the SCHEMA in the create_string
         
         cur.execute(table_string)
@@ -56,12 +61,21 @@ class SpeedTest:
         """
         #TODO: Handle errors by speedtest_cli.  i.e. if output has "Cancelling"
         stdout_capturer = io.StringIO()
-        if os.environ['ENV_NAME'] != 'dev':
+        # If the ENV_NAME isn't set OR it is set but isn't equal to 'dev'
+        # we'll run the real test that hits the Internet.
+        # TODO: I feel like this isn't an elegant way to do this. Hmm.
+        try:
+            os.environ['ENV_NAME']
+            if os.environ['ENV_NAME'] == 'dev':
+                self.__result_code__ = self.__possible_result_codes__['SUCCESS']
+                return sample_speedtest.result
+            else:
+                raise "Do the real test."
+        except: 
             with redirect_stdout(stdout_capturer):
                 speedtest_cli.main()
+            self.__result_code__ = self.__possible_result_codes__['SUCCESS']
             return stdout_capturer.getvalue()
-        else:
-            return sample_speedtest.result
 
 
     def get_speeds(self, speedtest_results):
@@ -74,13 +88,32 @@ class SpeedTest:
         return {'download_speed':
                     download_pattern.search(speedtest_results).group('download_speed'),
                 'upload_speed':
-                    upload_pattern.search(speedtest_results).group('upload_speed')}
-
-    def run_test(self):
-        pass
+                    upload_pattern.search(speedtest_results).group('upload_speed'),
+                'timestamp': datetime.datetime.now().isoformat()}
 
     def result_code(self):
-        pass
+        return self.__result_code__
 
-    def get_result_code(self):
-        pass
+    def save_results(self, result_dict):
+        """
+        Input: Result dict from get_speeds with keys 
+            'timestamp'
+            'download_speed',
+            'upload_speed'
+        """
+        try: 
+            self.create_db()
+        except:
+            print("DB already exists, I think.")
+        conn = sqlite3.connect(self.get_full_db_path())
+        cur = conn.cursor()
+        columns_and_values = (\
+                 result_dict['timestamp'], result_dict['download_speed'],\
+                 result_dict['upload_speed'])
+        cur.execute("INSERT INTO {}\
+            ('timestamp', 'download_speed', 'upload_speed')\
+            values (?, ?, ?)".\
+            format(self.SCHEMA['TABLE_NAME']),\
+            columns_and_values)
+        conn.commit()
+        conn.close()

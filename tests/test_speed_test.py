@@ -26,8 +26,15 @@ class TestSpeedTest:
         assert self.tester.SCHEMA['COLUMNS'] == {
             '_id':'INTEGER PRIMARY KEY AUTOINCREMENT',
             'timestamp': 'TEXT',
-            'result': 'TEXT',
+            'download_speed': 'TEXT',
+            'upload_speed': 'TEXT',
             }
+
+    def test_get_result_code(self):
+        """Before running test, it returns an incomplete code."""
+        assert self.tester.result_code() ==\
+            self.tester.__possible_result_codes__['HAS_NOT_RUN']
+        #TODO: Test value AFTER running speedtest
 
     def test_create_db_correctly(self):
         self.tester.create_db()
@@ -77,6 +84,19 @@ class TestSpeedTest:
         assert 'download_speed' in speed_dict
         assert 'upload_speed' in speed_dict
 
-
-    def test_run_test(self):
-        pass
+    def test_save_results(self):
+        """
+        I save results in the database.
+        """
+        self.tester.create_db()
+        result_string = self.tester.run_speedtest() 
+        result_dict = self.tester.get_speeds(result_string)
+        self.tester.save_results(result_dict)
+        conn = sqlite3.connect(self.tester.get_full_db_path())
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute('SELECT * from {}'.format(self.tester.SCHEMA['TABLE_NAME']))
+        row = cur.fetchone()
+        assert os.environ['ENV_NAME'] == 'dev'
+        assert row['download_speed'] == result_dict['download_speed']
+        assert row['upload_speed'] == result_dict['upload_speed']
