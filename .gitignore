@@ -6,6 +6,4 @@
 
 # Ignoring everything from Sphinx, at least for now because I can undo it easier
 # than removing later if I don't want it.
-build/
 source/
-Makefile
