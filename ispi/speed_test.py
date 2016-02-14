@@ -14,6 +14,10 @@ except:
 
 
 class SpeedTest:
+    """
+    Instances of this class are used to test download speeds using
+    speedtest-cli.
+    """
 
     DB_PATH = os.path.abspath('.')
     SCHEMA = {'DB_NAME': 'ispi_db.sqlite',
@@ -32,9 +36,17 @@ class SpeedTest:
         pass
 
     def get_full_db_path(self):
+        """
+        Returns the absolute path to the database, including the database's
+        name.
+        """
         return os.path.join(self.DB_PATH, self.SCHEMA['DB_NAME'])
 
     def create_db(self):
+        """
+        Create the sqlite database at the path identified by
+        _get_full_db_path()_
+        """
         if os.path.exists(self.get_full_db_path()):
             raise "This method should not get called if the db already exists"
         print("creating db at {}".format(self.get_full_db_path()))
@@ -92,6 +104,7 @@ class SpeedTest:
                 'timestamp': datetime.datetime.now().isoformat()}
 
     def result_code(self):
+        """Returns a code for success or failure."""
         return self.__result_code__
 
     def save_results(self, result_dict):
